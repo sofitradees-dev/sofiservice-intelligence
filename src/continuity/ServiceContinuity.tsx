@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { workshopKindLabel } from '../domain/workshop'
 import { loadAppState, restoreAppState, saveAppState } from '../flow/unifiedStore'
+import { CustomerUpdatePanel } from '../updates/CustomerUpdatePanel'
 import { OrderCheckpoints } from './OrderCheckpoints'
 
 export function ServiceContinuity() {
@@ -124,6 +125,7 @@ export function ServiceContinuity() {
               setMessage(notice)
             }}
           />
+          <CustomerUpdatePanel order={order} />
         </section>
       </main>
     </div>

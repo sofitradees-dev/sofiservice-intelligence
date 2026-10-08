@@ -114,6 +114,36 @@ p {
   margin-top: 0.75rem;
 }
 
+.customer-update {
+  margin-top: 1rem;
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.customer-update-text {
+  margin: 0.65rem 0;
+  font-size: 0.92rem;
+}
+
+.customer-update-message,
+.customer-update-demo {
+  margin-top: 0.75rem;
+}
+
+.customer-update-demo {
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--line);
+}
+
+.customer-update h4 {
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .order-followup {
   margin-top: 1rem;
   padding-top: 0.85rem;
