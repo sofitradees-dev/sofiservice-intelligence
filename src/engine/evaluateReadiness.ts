@@ -19,14 +19,23 @@ function recommendedAction(input: {
   attentionStatus: ServiceRequest['attentionStatus']
   decision: ReadinessEvaluation['decision']
   capacityBlocked: boolean
+  staffBlocked: boolean
   spareBlocked: boolean
   capacityUnknown: boolean
+  staffUnknown: boolean
   spareUnknown: boolean
   infoIncomplete: boolean
+  workshopMissing: boolean
 }): string {
   const pending: string[] = []
+  if (input.workshopMissing) {
+    pending.push('la selección del taller')
+  }
   if (input.capacityUnknown) {
     pending.push('la capacidad del taller')
+  }
+  if (input.staffUnknown) {
+    pending.push('la disponibilidad de personal técnico')
   }
   if (input.spareUnknown) {
     pending.push('la disponibilidad del recambio obligatorio')
@@ -44,27 +53,46 @@ function recommendedAction(input: {
   }
 
   if (input.decision === 'NO_CONFIRMABLE') {
-    const hasCapacity = input.capacityBlocked
-    const hasSpare = input.spareBlocked
-
-    if (hasCapacity && hasSpare && pending.length > 0) {
-      return `No confirmar la atención. Gestionar el cupo del taller y el recambio obligatorio, y verificar ${joinEs(pending)}.`
+    const blockers: string[] = []
+    if (input.capacityBlocked) {
+      blockers.push('el cupo del taller')
+    }
+    if (input.staffBlocked) {
+      blockers.push('el personal técnico')
+    }
+    if (input.spareBlocked) {
+      blockers.push('el recambio obligatorio')
     }
 
-    if (hasCapacity && hasSpare) {
-      return 'No confirmar la atención. Gestionar ambas condiciones: el cupo del taller y el recambio obligatorio no están disponibles.'
+    if (blockers.length > 1 && pending.length > 0) {
+      return `No confirmar la atención. Gestionar ${joinEs(blockers)}, y verificar ${joinEs(pending)}.`
     }
 
-    if (hasCapacity && pending.length > 0) {
+    if (blockers.length > 1) {
+      if (input.capacityBlocked && input.spareBlocked && !input.staffBlocked) {
+        return 'No confirmar la atención. Gestionar ambas condiciones: el cupo del taller y el recambio obligatorio no están disponibles.'
+      }
+      return `No confirmar la atención. Gestionar estas condiciones: ${joinEs(blockers)} no están disponibles.`
+    }
+
+    if (input.capacityBlocked && pending.length > 0) {
       return `No confirmar la atención. Consultar otra disponibilidad del taller y verificar ${joinEs(pending)}.`
     }
 
-    if (hasSpare && pending.length > 0) {
+    if (input.staffBlocked && pending.length > 0) {
+      return `No confirmar la atención. Verificar o asignar personal técnico y verificar ${joinEs(pending)}.`
+    }
+
+    if (input.spareBlocked && pending.length > 0) {
       return `No confirmar la atención. Verificar o gestionar el suministro del recambio necesario y verificar ${joinEs(pending)}.`
     }
 
-    if (hasCapacity) {
+    if (input.capacityBlocked) {
       return 'No confirmar la atención. Consultar otra disponibilidad del taller antes de ofrecer una recepción.'
+    }
+
+    if (input.staffBlocked) {
+      return 'No confirmar la atención. Verificar o asignar personal técnico disponible antes de ofrecer una recepción.'
     }
 
     return 'No confirmar la atención. Verificar o gestionar el suministro del recambio necesario antes de ofrecer una fecha de atención.'
@@ -83,13 +111,21 @@ export function evaluateReadiness(
   const reasons: string[] = []
   let hasConfirmedBlocker = false
   let needsVerification = false
+  const workshopMissing = request.workshopKind === 'no_seleccionado'
   const capacityBlocked = request.capacity === 'no_disponible'
   const capacityUnknown = request.capacity === 'desconocida'
+  const staffBlocked = request.staffAvailability === 'no_disponible'
+  const staffUnknown = request.staffAvailability === 'desconocida'
   const spareBlocked =
     request.requiresSpare && request.spareAvailability === 'no_disponible'
   const spareUnknown =
     request.requiresSpare && request.spareAvailability === 'desconocida'
   const infoIncomplete = request.operationalInfo === 'incompleta'
+
+  if (workshopMissing) {
+    needsVerification = true
+    reasons.push('No hay un taller propio o externo seleccionado.')
+  }
 
   if (capacityBlocked) {
     hasConfirmedBlocker = true
@@ -98,6 +134,18 @@ export function evaluateReadiness(
     needsVerification = true
     reasons.push(
       'La capacidad del taller es desconocida y debe verificarse.',
+    )
+  }
+
+  if (staffBlocked) {
+    hasConfirmedBlocker = true
+    reasons.push(
+      'No hay personal técnico disponible según el valor simulado de la solicitud.',
+    )
+  } else if (staffUnknown) {
+    needsVerification = true
+    reasons.push(
+      'La disponibilidad de personal técnico es desconocida y debe verificarse.',
     )
   }
 
@@ -124,8 +172,15 @@ export function evaluateReadiness(
       ? 'VERIFICACION_REQUERIDA'
       : 'CONFIRMABLE'
 
+  const workshopLabel =
+    request.workshopKind === 'externo'
+      ? 'Taller seleccionado: externo.'
+      : 'Taller seleccionado: propio.'
+
   const favorableReasons = [
+    workshopLabel,
     'Capacidad del taller: disponible.',
+    'Personal técnico: disponible.',
     request.requiresSpare
       ? 'Recambio obligatorio: disponible según el valor simulado de la solicitud.'
       : 'El servicio no requiere recambio; este factor no bloquea la atención.',
@@ -139,10 +194,13 @@ export function evaluateReadiness(
       attentionStatus: request.attentionStatus,
       decision,
       capacityBlocked,
+      staffBlocked,
       spareBlocked,
       capacityUnknown,
+      staffUnknown,
       spareUnknown,
       infoIncomplete,
+      workshopMissing,
     }),
   }
 }

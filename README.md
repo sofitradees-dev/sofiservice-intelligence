@@ -3,52 +3,76 @@
 Prototipo para Connect atVentures 2026 (reto BYD).  
 Equipo: SOFI TEAM
 
-Versiones incluidas:
+Versión actual: **Unified Service Flow v0.4**
+
+Versiones anteriores conservadas como módulos:
 
 - **Service Readiness v0.2.1**
 - **Service Continuity v0.3**
 
 **DEMO — DATOS 100 % SIMULADOS**
 
-Aplicación web local con dos módulos demostrables. No sustituye sistemas internos de BYD, inventario real ni la coordinación con talleres.
+Aplicación web local. No sustituye sistemas internos de BYD, inventario real, reserva de cupo ni la coordinación con talleres.
 
 ## Problema de postventa abordado
 
 La postventa automotriz combina mantenimientos preventivos, revisiones mecánicas y trabajos de pintura o colisión. Parte de esa atención puede realizarse en talleres de red o en talleres externos.
 
-Este prototipo **no afirma** que existan retrasos sistemáticos, pérdidas de información o fallas confirmadas de coordinación. Muestra dos decisiones verificables:
+Este prototipo **no afirma** retrasos sistemáticos ni fallas confirmadas de coordinación. Muestra un recorrido continuo y verificable:
 
-1. **Readiness:** antes de ofrecer una atención, ¿las condiciones simuladas de cupo, recambio e información operativa permiten confirmar la recepción?
-2. **Continuity:** en una orden de colisión simulada en taller externo, ¿qué etapa o dependencia impide avanzar y qué acción explícita se requiere?
+1. **Readiness:** antes de ofrecer una atención, ¿las condiciones simuladas de taller, cupo, personal técnico, recambio e información operativa permiten confirmar la recepción?
+2. **Continuity:** en la orden vinculada, ¿qué etapa o dependencia impide avanzar y qué acción explícita se requiere?
 
 ## Propuesta
 
-**SOFI Service Intelligence** concentra esas verificaciones en flujos cortos y explicables, con reglas deterministas y confirmación o avance **manual**.
+**SOFI Service Intelligence** une esas verificaciones en un solo flujo de postventa simulada, con reglas deterministas y confirmación o avance **manual**.
+
+## Unified Service Flow v0.4
+
+Recorrido principal:
+
+**Solicitud → Evaluación → Confirmación → Orden vinculada → Checkpoints → Finalización.**
+
+Incluido y demostrable:
+
+- Cinco solicitudes ficticias, con tipo de taller (**PROPIO** / **EXTERNO**) y nombre asignado por separado.
+- Motor de Readiness ampliado: capacidad, personal técnico, recambio si aplica, información operativa y taller seleccionado.
+- Resultados: **CONFIRMABLE**, **NO_CONFIRMABLE**, **VERIFICACION_REQUERIDA**.
+- Confirmación manual solo con evaluación vigente y CONFIRMABLE. Crea **una** orden sintética vinculada; no reserva un cupo real.
+- Checkpoints secuenciales y explícitos. La disponibilidad inicial en inventario no equivale a recepción del recambio en el taller.
+- Si el servicio no requiere recambio, esa condición es **NO APLICA** y no bloquea.
+- Persistencia local unificada y **Restaurar escenario**.
+
+Los módulos Readiness y Continuity siguen disponibles para inspección, pero el pitch usa el recorrido unificado.
+
+## Escenario de pitch: REQ-DEMO-003
+
+Servicio: reparación por colisión (carrocería).  
+Taller: **EXTERNO** — Taller externo de colisión simulado.  
+Recambio: obligatorio. Capacidad y personal: disponibles. Información operativa: completa.
+
+Recorrido:
+
+1. Evaluación **CONFIRMABLE**.
+2. Confirmación manual del asesor.
+3. Creación de una sola orden `OS-LINK-REQ-DEMO-003` (el vehículo no figura recibido ni la reparación iniciada).
+4. Recepción explícita del vehículo.
+5. Asignación explícita al taller externo.
+6. Reparación bloqueada hasta registrar la recepción del recambio en el taller.
+7. Registro de recepción del recambio.
+8. Inicio manual de la reparación.
+9. Finalización manual.
+10. Estado **COMPLETADO**, con historial visible y sin acciones operativas activas.
+
+**Restaurar escenario** deja de nuevo REQ-DEMO-003 pendiente para repetir la demostración.
 
 ## Service Readiness v0.2.1
 
-Incluido y demostrable:
-
-- Cinco solicitudes ficticias (mantenimiento preventivo, revisión mecánica, colisión y pintura en taller externo simulado).
-- Motor puro `evaluateReadiness()`: **CONFIRMABLE**, **NO_CONFIRMABLE**, **VERIFICACION_REQUERIDA**.
-- Motivos verificables y recomendaciones contextuales (si solo falta recambio, no se recomienda resolver un problema de cupo).
-- Confirmación manual, solo con evaluación vigente y CONFIRMABLE.
-- Revocación si las condiciones dejan de ser válidas.
-- Persistencia en `localStorage` y restauración de la demo.
+Motor puro `evaluateReadiness()`. Motivos verificables, recomendaciones contextuales, confirmación manual y revocación si las condiciones dejan de ser válidas.
 
 ## Service Continuity v0.3
 
-Incluido y demostrable:
-
-- Una orden sintética: **OS-DEMO-001**, reparación por colisión en un taller externo ficticio.
-- Etapas: recepción del vehículo, asignación al taller, confirmación de recepción del recambio, inicio de reparación y reparación finalizada.
-- Estado inicial: recepción y asignación completadas; recambio pendiente; reparación no iniciada.
-- Motor puro `evaluateContinuity()`: etapa actual, dependencias, **LISTO_PARA_AVANZAR** o **BLOQUEADO**, motivos y siguiente acción.
-- El inicio no se infiere por inventario: hace falta registrar de forma explícita la recepción del recambio.
-- No hay retrocesos ni transiciones inválidas.
-- Restauración del escenario inicial.
-
-Esto **no** es un gestor de talleres, un seguimiento completo de reparación ni una integración de correo.
+Motor puro `evaluateContinuity()`. Etapas y dependencias explícitas. La semilla de pruebas **OS-DEMO-001** cubre el caso de recambio pendiente en taller externo; la interfaz unificada usa órdenes creadas al confirmar una solicitud.
 
 ## Instalación y ejecución
 
@@ -63,10 +87,10 @@ npm run dev
 
 La aplicación queda en [http://localhost:5173/](http://localhost:5173/).
 
-Navegación en pantalla: **Service Readiness** y **Service Continuity**.
+Navegación: **Recorrido**, **Service Readiness** y **Service Continuity**.
 
 ```bash
-npm test          # 35 pruebas (Readiness + Continuity)
+npm test          # 56 pruebas (Readiness, Continuity, vinculación y presentación de taller)
 npm run build     # TypeScript y empaquetado
 ```
 
@@ -74,14 +98,14 @@ Stack: React, Vite, TypeScript y CSS. Sin dependencias de nube.
 
 ## Pruebas y datos simulados
 
-Vitest cubre reglas de Readiness (decisión, confirmación, persistencia, recomendaciones) y de Continuity (bloqueo por recambio, transiciones inválidas, habilitación, finalización, restauración).
+Vitest cubre Readiness (decisión, personal, taller, confirmación, persistencia), Continuity (dependencias, recambio, transiciones inválidas, estado final) y el vínculo solicitud-orden (sin duplicados, orden inmutable tras confirmar, restauración).
 
-Vehículos, VIN, talleres e identificadores son **sintéticos** (`DEMO-`, `FICCIO`, `REQ-DEMO-`, `OS-DEMO-001`). No hay datos reales de clientes ni de operaciones BYD.
+Vehículos, VIN, talleres e identificadores son **sintéticos** (`DEMO-`, `FICCIO`, `REQ-DEMO-`, `OS-LINK-`, `OS-DEMO-001`). No hay datos reales de clientes ni de operaciones BYD.
 
 ## Limitaciones del MVP
 
 - Sin backend, APIs, autenticación ni AWS.
-- Sin inventario real, reserva de cupo ni solicitud efectiva de recambio.
+- Sin inventario real, reserva de cupo, agenda ni sistema de recursos humanos.
 - Sin correo electrónico ni comunicación con talleres.
 - Sin dashboard de múltiples talleres ni visibilidad para el cliente.
 - Sin IA en tiempo de ejecución: no hay modelos, predicciones ni agentes.

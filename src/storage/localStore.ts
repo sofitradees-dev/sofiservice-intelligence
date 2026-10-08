@@ -5,10 +5,12 @@ import type {
   OperationalInfo,
   ServiceRequest,
   SpareAvailability,
+  StaffAvailability,
+  WorkshopKind,
 } from '../domain/types'
 import { reconcileAfterConditionChange } from '../engine/confirmation'
 
-const STORAGE_KEY = 'sofi-service-readiness-v0.2'
+const STORAGE_KEY = 'sofi-service-readiness-v0.4'
 
 const CAPACITY: ReadonlySet<string> = new Set([
   'disponible',
@@ -22,6 +24,11 @@ const SPARE: ReadonlySet<string> = new Set([
 ])
 const INFO: ReadonlySet<string> = new Set(['completa', 'incompleta'])
 const ATTENTION: ReadonlySet<string> = new Set(['pendiente', 'confirmada'])
+const WORKSHOP: ReadonlySet<string> = new Set([
+  'propio',
+  'externo',
+  'no_seleccionado',
+])
 
 export function parseStoredRequest(value: unknown): ServiceRequest | null {
   if (!value || typeof value !== 'object') {
@@ -45,12 +52,21 @@ export function parseStoredRequest(value: unknown): ServiceRequest | null {
     return null
   }
 
+  const workshopKind = WORKSHOP.has(String(item.workshopKind))
+    ? (item.workshopKind as WorkshopKind)
+    : 'propio'
+  const staffAvailability = CAPACITY.has(String(item.staffAvailability))
+    ? (item.staffAvailability as StaffAvailability)
+    : 'disponible'
+
   return {
     id: item.id,
     vehicle: item.vehicle,
     serviceType: item.serviceType,
     workshop: item.workshop,
+    workshopKind,
     capacity: item.capacity as CapacityStatus,
+    staffAvailability,
     requiresSpare: item.requiresSpare,
     spareAvailability: item.spareAvailability as SpareAvailability,
     operationalInfo: item.operationalInfo as OperationalInfo,

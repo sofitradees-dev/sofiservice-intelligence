@@ -1,11 +1,19 @@
 import { useState } from 'react'
 import { ServiceContinuity } from './continuity/ServiceContinuity'
+import { UnifiedJourney } from './flow/UnifiedJourney'
 import { ServiceReadiness } from './readiness/ServiceReadiness'
 
-type ModuleId = 'readiness' | 'continuity'
+type ModuleId = 'journey' | 'readiness' | 'continuity'
 
 function App() {
-  const [moduleId, setModuleId] = useState<ModuleId>('readiness')
+  const [moduleId, setModuleId] = useState<ModuleId>('journey')
+
+  const subtitle =
+    moduleId === 'journey'
+      ? 'Recorrido unificado: de la solicitud de atención a la finalización simulada.'
+      : moduleId === 'readiness'
+        ? 'Service Readiness: verificar condiciones operativas simuladas antes de recibir un vehículo.'
+        : 'Service Continuity: etapas y dependencias explícitas de órdenes simuladas.'
 
   return (
     <div className="app-shell">
@@ -13,12 +21,15 @@ function App() {
         <div>
           <p className="eyebrow">Connect atVentures 2026 · SOFI TEAM</p>
           <h1>SOFI Service Intelligence</h1>
-          <p className="subtitle">
-            {moduleId === 'readiness'
-              ? 'Service Readiness: verificar condiciones operativas simuladas antes de recibir un vehículo.'
-              : 'Service Continuity: etapas y dependencias explícitas de una orden simulada en taller externo.'}
-          </p>
+          <p className="subtitle">{subtitle}</p>
           <nav className="module-nav" aria-label="Módulos">
+            <button
+              type="button"
+              className={moduleId === 'journey' ? 'nav-link active' : 'nav-link'}
+              onClick={() => setModuleId('journey')}
+            >
+              Recorrido
+            </button>
             <button
               type="button"
               className={moduleId === 'readiness' ? 'nav-link active' : 'nav-link'}
@@ -40,7 +51,13 @@ function App() {
         </p>
       </header>
 
-      {moduleId === 'readiness' ? <ServiceReadiness /> : <ServiceContinuity />}
+      {moduleId === 'journey' ? (
+        <UnifiedJourney />
+      ) : moduleId === 'readiness' ? (
+        <ServiceReadiness />
+      ) : (
+        <ServiceContinuity />
+      )}
     </div>
   )
 }

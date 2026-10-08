@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { cloneInitialOrder } from './demoOrder'
 import {
   applyContinuityEvent,
+  availableOperationalEvents,
   evaluateContinuity,
+  nextOperationalEvent,
   startRepairBlockers,
 } from './evaluateContinuity'
 import type { ContinuityOrder } from './types'
@@ -136,6 +138,90 @@ describe('Service Continuity', () => {
     expect(applyContinuityEvent(started, 'start_repair').ok).toBe(false)
     expect(started.vehicleReceived).toBe(true)
     expect(started.assignmentConfirmed).toBe(true)
+  })
+
+  it('servicio sin recambio no bloquea el inicio', () => {
+    const order = orderWith({
+      requiresSpare: false,
+      spareReceived: false,
+      vehicleReceived: true,
+      assignmentConfirmed: true,
+    })
+    expect(evaluateContinuity(order).status).toBe('LISTO_PARA_AVANZAR')
+    expect(applyContinuityEvent(order, 'start_repair').ok).toBe(true)
+    expect(applyContinuityEvent(order, 'confirm_spare_receipt').ok).toBe(false)
+  })
+
+  it('dependencia de recambio en taller externo', () => {
+    const order = cloneInitialOrder()
+    expect(order.workshopKind).toBe('externo')
+    expect(order.requiresSpare).toBe(true)
+    expect(evaluateContinuity(order).status).toBe('BLOQUEADO')
+    const received = applyContinuityEvent(order, 'confirm_spare_receipt')
+    expect(received.ok).toBe(true)
+    expect(evaluateContinuity(received.order).status).toBe('LISTO_PARA_AVANZAR')
+  })
+
+  it('no asignar ni registrar recambio antes de recepción', () => {
+    const order = orderWith({
+      vehicleReceived: false,
+      assignmentConfirmed: false,
+      spareReceived: false,
+    })
+    expect(applyContinuityEvent(order, 'confirm_assignment').ok).toBe(false)
+    expect(applyContinuityEvent(order, 'confirm_spare_receipt').ok).toBe(false)
+    expect(applyContinuityEvent(order, 'start_repair').ok).toBe(false)
+  })
+
+  it('no duplica un checkpoint ya registrado', () => {
+    const received = applyContinuityEvent(
+      cloneInitialOrder(),
+      'confirm_spare_receipt',
+    )
+    expect(received.ok).toBe(true)
+    expect(applyContinuityEvent(received.order, 'confirm_spare_receipt').ok).toBe(
+      false,
+    )
+  })
+
+  it('solo ofrece la siguiente acción operativa habilitada', () => {
+    const fresh = orderWith({
+      vehicleReceived: false,
+      assignmentConfirmed: false,
+      spareReceived: false,
+      repairStarted: false,
+      repairFinished: false,
+    })
+    expect(availableOperationalEvents(fresh)).toEqual([
+      'confirm_vehicle_reception',
+    ])
+
+    const assigned = applyContinuityEvent(
+      applyContinuityEvent(fresh, 'confirm_vehicle_reception').order,
+      'confirm_assignment',
+    ).order
+    expect(nextOperationalEvent(assigned)).toBe('confirm_spare_receipt')
+    expect(applyContinuityEvent(assigned, 'start_repair').ok).toBe(false)
+    expect(applyContinuityEvent(assigned, 'confirm_vehicle_reception').ok).toBe(
+      false,
+    )
+  })
+
+  it('orden finalizada no deja acciones operativas', () => {
+    let order = orderWith({
+      vehicleReceived: false,
+      assignmentConfirmed: false,
+      spareReceived: false,
+    })
+    order = applyContinuityEvent(order, 'confirm_vehicle_reception').order
+    order = applyContinuityEvent(order, 'confirm_assignment').order
+    order = applyContinuityEvent(order, 'confirm_spare_receipt').order
+    order = applyContinuityEvent(order, 'start_repair').order
+    order = applyContinuityEvent(order, 'finish_repair').order
+    expect(evaluateContinuity(order).allStagesComplete).toBe(true)
+    expect(availableOperationalEvents(order)).toEqual([])
+    expect(applyContinuityEvent(order, 'finish_repair').ok).toBe(false)
+    expect(applyContinuityEvent(order, 'start_repair').ok).toBe(false)
   })
 
   it('restaurar escenario inicial', () => {

@@ -16,10 +16,13 @@ export type ContinuityEvent =
   | 'revert_stage'
 
 export interface ContinuityOrder {
-  id: 'OS-DEMO-001'
+  id: string
+  requestId: string
   vehicle: string
   serviceType: string
   workshop: string
+  workshopKind: 'propio' | 'externo' | 'no_seleccionado'
+  requiresSpare: boolean
   vehicleReceived: boolean
   assignmentConfirmed: boolean
   spareReceived: boolean

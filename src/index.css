@@ -58,6 +58,72 @@ p {
   color: white;
 }
 
+.journey-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  list-style: none;
+  margin: 0;
+  padding: 0.65rem 1.1rem 0;
+}
+
+.journey-steps li {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.journey-steps li.active {
+  background: #ccfbf1;
+  color: var(--ok);
+}
+
+.ops-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
+  gap: 0.55rem;
+  margin: 0.65rem 1.1rem 0;
+  padding: 0.7rem 0.85rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.ops-summary dt {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ops-summary dd {
+  margin: 0.15rem 0 0;
+  font-size: 0.86rem;
+}
+
+.kind-tag {
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.checkpoint-action {
+  margin-top: 0.75rem;
+}
+
+.order-followup {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line);
+}
+
+.timeline-item.na {
+  background: var(--na-bg);
+}
+
 .module-nav {
   display: flex;
   flex-wrap: wrap;

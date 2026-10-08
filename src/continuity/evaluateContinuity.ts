@@ -11,11 +11,15 @@ export const STAGE_SEQUENCE: {
   label: string
 }[] = [
   { id: 'recepcion_vehiculo', label: 'Recepción del vehículo' },
-  { id: 'asignacion_taller', label: 'Asignación al taller externo' },
+  { id: 'asignacion_taller', label: 'Asignación al taller seleccionado' },
   { id: 'recepcion_repuesto', label: 'Confirmación de recepción del recambio' },
   { id: 'inicio_reparacion', label: 'Inicio de reparación' },
   { id: 'reparacion_finalizada', label: 'Reparación finalizada' },
 ]
+
+export function spareConditionSatisfied(order: ContinuityOrder): boolean {
+  return !order.requiresSpare || order.spareReceived
+}
 
 export function isStageComplete(
   order: ContinuityOrder,
@@ -27,7 +31,7 @@ export function isStageComplete(
     case 'asignacion_taller':
       return order.assignmentConfirmed
     case 'recepcion_repuesto':
-      return order.spareReceived
+      return spareConditionSatisfied(order)
     case 'inicio_reparacion':
       return order.repairStarted
     case 'reparacion_finalizada':
@@ -42,9 +46,9 @@ export function startRepairBlockers(order: ContinuityOrder): string[] {
     blockers.push('Falta la recepción del vehículo.')
   }
   if (!order.assignmentConfirmed) {
-    blockers.push('Falta la asignación confirmada al taller externo.')
+    blockers.push('Falta la asignación confirmada al taller seleccionado.')
   }
-  if (!order.spareReceived) {
+  if (order.requiresSpare && !order.spareReceived) {
     blockers.push(
       'Falta la confirmación de recepción del recambio requerido. No se infiere llegada por inventario.',
     )
@@ -66,12 +70,16 @@ export function evaluateContinuity(
   }
 
   if (order.assignmentConfirmed) {
-    verifiedDependencies.push('Asignación al taller externo confirmada.')
+    verifiedDependencies.push('Asignación al taller seleccionado confirmada.')
   } else {
-    pendingDependencies.push('Asignación confirmada al taller externo.')
+    pendingDependencies.push('Asignación confirmada al taller seleccionado.')
   }
 
-  if (order.spareReceived) {
+  if (!order.requiresSpare) {
+    verifiedDependencies.push(
+      'Recambio: no aplica; no bloquea el avance.',
+    )
+  } else if (order.spareReceived) {
     verifiedDependencies.push(
       'Recepción del recambio confirmada de forma explícita.',
     )
@@ -96,7 +104,7 @@ export function evaluateContinuity(
   const allStagesComplete =
     order.vehicleReceived &&
     order.assignmentConfirmed &&
-    order.spareReceived &&
+    spareConditionSatisfied(order) &&
     order.repairStarted &&
     order.repairFinished
 
@@ -105,7 +113,7 @@ export function evaluateContinuity(
     currentStage = 'recepcion_vehiculo'
   } else if (!order.assignmentConfirmed) {
     currentStage = 'asignacion_taller'
-  } else if (!order.spareReceived) {
+  } else if (order.requiresSpare && !order.spareReceived) {
     currentStage = 'recepcion_repuesto'
   } else if (!order.repairStarted) {
     currentStage = 'inicio_reparacion'
@@ -146,11 +154,16 @@ export function evaluateContinuity(
       status: 'LISTO_PARA_AVANZAR',
       pendingDependencies,
       verifiedDependencies,
-      reasons: [
-        'La recepción del vehículo, la asignación y la recepción del recambio están confirmadas.',
-      ],
-      recommendedAction:
-        'El asesor puede iniciar la reparación de forma explícita. El recambio no se da por recibido por inventario.',
+      reasons: order.requiresSpare
+        ? [
+            'La recepción del vehículo, la asignación y la recepción del recambio están confirmadas.',
+          ]
+        : [
+            'La recepción del vehículo y la asignación están confirmadas. El recambio no aplica.',
+          ],
+      recommendedAction: order.requiresSpare
+        ? 'El asesor puede iniciar la reparación de forma explícita. El recambio no se da por recibido por inventario.'
+        : 'El asesor puede iniciar la reparación de forma explícita. El servicio no requiere recambio.',
       allStagesComplete: false,
     }
   }
@@ -202,13 +215,29 @@ export function applyContinuityEvent(
       return {
         ok: false,
         order,
-        error: alreadyCompleteMessage('La asignación al taller externo'),
+        error: alreadyCompleteMessage('La asignación al taller seleccionado'),
+      }
+    }
+    if (!order.vehicleReceived) {
+      return {
+        ok: false,
+        order,
+        error:
+          'No se puede asignar el taller antes de registrar la recepción del vehículo.',
       }
     }
     return { ok: true, order: { ...order, assignmentConfirmed: true } }
   }
 
   if (event === 'confirm_spare_receipt') {
+    if (!order.requiresSpare) {
+      return {
+        ok: false,
+        order,
+        error:
+          'Este servicio no requiere recambio; la condición no aplica y no bloquea el avance.',
+      }
+    }
     if (order.spareReceived) {
       return {
         ok: false,
@@ -216,6 +245,14 @@ export function applyContinuityEvent(
         error: alreadyCompleteMessage(
           'La confirmación de recepción del recambio',
         ),
+      }
+    }
+    if (!order.vehicleReceived || !order.assignmentConfirmed) {
+      return {
+        ok: false,
+        order,
+        error:
+          'No se puede registrar el recambio antes de la recepción del vehículo y la asignación al taller.',
       }
     }
     return { ok: true, order: { ...order, spareReceived: true } }
@@ -275,4 +312,31 @@ export function canApplyEvent(
   event: ContinuityEvent,
 ): boolean {
   return applyContinuityEvent(order, event).ok
+}
+
+const EVENT_FOR_STAGE: Record<ContinuityStageId, ContinuityEvent> = {
+  recepcion_vehiculo: 'confirm_vehicle_reception',
+  asignacion_taller: 'confirm_assignment',
+  recepcion_repuesto: 'confirm_spare_receipt',
+  inicio_reparacion: 'start_repair',
+  reparacion_finalizada: 'finish_repair',
+}
+
+export function nextOperationalEvent(
+  order: ContinuityOrder,
+): ContinuityEvent | null {
+  const evaluation = evaluateContinuity(order)
+  if (evaluation.allStagesComplete) {
+    return null
+  }
+
+  const event = EVENT_FOR_STAGE[evaluation.currentStage]
+  return canApplyEvent(order, event) ? event : null
+}
+
+export function availableOperationalEvents(
+  order: ContinuityOrder,
+): ContinuityEvent[] {
+  const next = nextOperationalEvent(order)
+  return next ? [next] : []
 }

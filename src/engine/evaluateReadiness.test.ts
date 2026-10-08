@@ -16,7 +16,9 @@ function baseFavorable(overrides: Partial<ServiceRequest> = {}): ServiceRequest 
     vehicle: 'Vehículo de prueba',
     serviceType: 'Servicio de prueba',
     workshop: 'Taller de prueba',
+    workshopKind: 'propio',
     capacity: 'disponible',
+    staffAvailability: 'disponible',
     requiresSpare: true,
     spareAvailability: 'disponible',
     operationalInfo: 'completa',
@@ -132,7 +134,7 @@ describe('evaluateReadiness', () => {
     expect(decisions).toEqual([
       'CONFIRMABLE',
       'NO_CONFIRMABLE',
-      'NO_CONFIRMABLE',
+      'CONFIRMABLE',
       'VERIFICACION_REQUERIDA',
       'VERIFICACION_REQUERIDA',
     ])
@@ -152,18 +154,15 @@ describe('recomendación operativa contextual', () => {
     expect(result.recommendedAction).not.toMatch(/recambio/i)
   })
 
-  it('REQ-DEMO-003: cupo disponible y recambio obligatorio no disponible', () => {
-    const request = DEMO_REQUESTS.find((item) => item.id === 'REQ-DEMO-003')
-    expect(request).toBeDefined()
-    if (!request) {
-      return
-    }
+  it('cupo disponible y recambio obligatorio no disponible', () => {
+    const request = baseFavorable({
+      workshopKind: 'externo',
+      workshop: 'Taller externo de colisión simulado',
+      requiresSpare: true,
+      spareAvailability: 'no_disponible',
+    })
 
     const result = evaluateReadiness(request)
-    expect(request.capacity).toBe('disponible')
-    expect(request.requiresSpare).toBe(true)
-    expect(request.spareAvailability).toBe('no_disponible')
-    expect(request.operationalInfo).toBe('completa')
     expect(result.decision).toBe('NO_CONFIRMABLE')
     expect(result.reasons).toHaveLength(1)
     expect(result.reasons[0]).toMatch(/recambio/i)
@@ -172,6 +171,25 @@ describe('recomendación operativa contextual', () => {
     expect(result.recommendedAction).not.toMatch(/cupo/i)
     expect(result.recommendedAction).not.toMatch(/disponibilidad del taller/i)
     expect(canConfirm(request, result)).toBe(false)
+  })
+
+  it('REQ-DEMO-003: escenario de pitch CONFIRMABLE en taller externo', () => {
+    const request = DEMO_REQUESTS.find((item) => item.id === 'REQ-DEMO-003')
+    expect(request).toBeDefined()
+    if (!request) {
+      return
+    }
+
+    const result = evaluateReadiness(request)
+    expect(request.workshopKind).toBe('externo')
+    expect(request.workshop).toMatch(/externo/i)
+    expect(request.capacity).toBe('disponible')
+    expect(request.staffAvailability).toBe('disponible')
+    expect(request.requiresSpare).toBe(true)
+    expect(request.spareAvailability).toBe('disponible')
+    expect(request.operationalInfo).toBe('completa')
+    expect(result.decision).toBe('CONFIRMABLE')
+    expect(canConfirm(request, result)).toBe(true)
   })
 
   it('faltan cupo y recambio: indica ambos bloqueos', () => {
@@ -227,6 +245,34 @@ describe('recomendación operativa contextual', () => {
     expect(result.recommendedAction).toMatch(/información operativa/i)
   })
 
+  it('falta de personal técnico → NO_CONFIRMABLE', () => {
+    const result = evaluateReadiness(
+      baseFavorable({ staffAvailability: 'no_disponible' }),
+    )
+    expect(result.decision).toBe('NO_CONFIRMABLE')
+    expect(result.reasons.some((reason) => /personal técnico/i.test(reason))).toBe(
+      true,
+    )
+    expect(result.recommendedAction).toMatch(/personal técnico/i)
+    expect(result.recommendedAction).not.toMatch(/cupo/i)
+  })
+
+  it('personal desconocido → VERIFICACION_REQUERIDA', () => {
+    const result = evaluateReadiness(
+      baseFavorable({ staffAvailability: 'desconocida' }),
+    )
+    expect(result.decision).toBe('VERIFICACION_REQUERIDA')
+    expect(result.recommendedAction).toMatch(/personal técnico/i)
+  })
+
+  it('taller no seleccionado → VERIFICACION_REQUERIDA', () => {
+    const result = evaluateReadiness(
+      baseFavorable({ workshopKind: 'no_seleccionado' }),
+    )
+    expect(result.decision).toBe('VERIFICACION_REQUERIDA')
+    expect(result.reasons.some((reason) => /taller/i.test(reason))).toBe(true)
+  })
+
   it('solicitud ya confirmada: no recomienda confirmar de nuevo', () => {
     const result = evaluateReadiness(
       baseFavorable({ attentionStatus: 'confirmada' }),
@@ -259,6 +305,19 @@ describe('confirmación manual', () => {
     expect(canConfirm(request, null)).toBe(false)
     expect(confirmRequest(request, null).ok).toBe(false)
     expect(confirmRequest(request, undefined).ok).toBe(false)
+  })
+
+  it('invalida la evaluación al cambiar el tipo de taller', () => {
+    const request = baseFavorable({ workshopKind: 'propio' })
+    const evaluation = evaluateReadiness(request)
+    expect(canConfirm(request, evaluation)).toBe(true)
+
+    const changed = {
+      ...request,
+      workshopKind: 'externo' as const,
+    }
+    expect(isEvaluationCurrent(changed, evaluation)).toBe(false)
+    expect(canConfirm(changed, evaluation)).toBe(false)
   })
 
   it('invalidación de evaluación al editar una condición', () => {

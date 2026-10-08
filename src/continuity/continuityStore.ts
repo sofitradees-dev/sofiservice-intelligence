@@ -14,6 +14,7 @@ function isOrder(value: unknown): value is ContinuityOrder {
     typeof item.vehicle === 'string' &&
     typeof item.serviceType === 'string' &&
     typeof item.workshop === 'string' &&
+    typeof item.requiresSpare === 'boolean' &&
     typeof item.vehicleReceived === 'boolean' &&
     typeof item.assignmentConfirmed === 'boolean' &&
     typeof item.spareReceived === 'boolean' &&

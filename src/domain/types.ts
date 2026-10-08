@@ -6,6 +6,10 @@ export type OperationalInfo = 'completa' | 'incompleta'
 
 export type AttentionStatus = 'pendiente' | 'confirmada'
 
+export type WorkshopKind = 'propio' | 'externo' | 'no_seleccionado'
+
+export type StaffAvailability = 'disponible' | 'no_disponible' | 'desconocida'
+
 export type ReadinessDecision =
   | 'CONFIRMABLE'
   | 'NO_CONFIRMABLE'
@@ -16,7 +20,9 @@ export interface ServiceRequest {
   vehicle: string
   serviceType: string
   workshop: string
+  workshopKind: WorkshopKind
   capacity: CapacityStatus
+  staffAvailability: StaffAvailability
   requiresSpare: boolean
   spareAvailability: SpareAvailability
   operationalInfo: OperationalInfo

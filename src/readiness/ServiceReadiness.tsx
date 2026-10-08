@@ -5,18 +5,17 @@ import type {
   ReadinessEvaluation,
   ServiceRequest,
   SpareAvailability,
+  StaffAvailability,
+  WorkshopKind,
 } from '../domain/types'
 import {
   canConfirm,
-  confirmRequest,
   reconcileAfterConditionChange,
 } from '../engine/confirmation'
 import { evaluateReadiness } from '../engine/evaluateReadiness'
-import {
-  loadRequests,
-  restoreDemoRequests,
-  saveRequests,
-} from '../storage/localStore'
+import { applyWorkshopSelection, workshopKindLabel } from '../domain/workshop'
+import { confirmAndLink, findOrderForRequest } from '../flow/linkOrder'
+import { loadAppState, restoreAppState, saveAppState } from '../flow/unifiedStore'
 
 const CAPACITY_OPTIONS: { value: CapacityStatus; label: string }[] = [
   { value: 'disponible', label: 'Disponible' },
@@ -75,9 +74,11 @@ function attentionLabel(request: ServiceRequest): string {
 }
 
 export function ServiceReadiness() {
-  const [requests, setRequests] = useState<ServiceRequest[]>(() => loadRequests())
+  const initial = loadAppState()
+  const [requests, setRequests] = useState<ServiceRequest[]>(initial.requests)
+  const [orders, setOrders] = useState(initial.orders)
   const [selectedId, setSelectedId] = useState<string>(
-    () => loadRequests()[0]?.id ?? '',
+    initial.requests[0]?.id ?? '',
   )
   const [evaluation, setEvaluation] = useState<ReadinessEvaluation | null>(null)
   const [evaluationStale, setEvaluationStale] = useState(false)
@@ -89,8 +90,8 @@ export function ServiceReadiness() {
   )
 
   useEffect(() => {
-    saveRequests(requests)
-  }, [requests])
+    saveAppState({ requests, orders })
+  }, [requests, orders])
 
   function updateSelected(patch: Partial<ServiceRequest>) {
     if (!selected) {
@@ -124,26 +125,32 @@ export function ServiceReadiness() {
       return
     }
 
-    const result = confirmRequest(selected, evaluation)
-    if (!result.ok) {
-      setMessage(result.error ?? 'No se puede confirmar esta solicitud.')
+    const result = confirmAndLink(selected, evaluation, orders)
+    if (!result.confirm.ok) {
+      setMessage(result.confirm.error ?? 'No se puede confirmar esta solicitud.')
       return
     }
 
     setRequests((current) =>
       current.map((request) =>
-        request.id === result.request.id ? result.request : request,
+        request.id === result.confirm.request.id ? result.confirm.request : request,
       ),
     )
-    setEvaluation(evaluateReadiness(result.request))
+    setOrders(result.orders)
+    setEvaluation(evaluateReadiness(result.confirm.request))
     setEvaluationStale(false)
-    setMessage('Atención confirmada de forma explícita por el asesor.')
+    setMessage(
+      result.created
+        ? 'Atención confirmada. Se creó una orden sintética vinculada. No se reservó un cupo real.'
+        : 'Atención confirmada de forma explícita por el asesor.',
+    )
   }
 
   function handleRestore() {
-    const restored = restoreDemoRequests()
-    setRequests(restored)
-    setSelectedId(restored[0]?.id ?? '')
+    const restored = restoreAppState()
+    setRequests(restored.requests)
+    setOrders(restored.orders)
+    setSelectedId(restored.requests[0]?.id ?? '')
     setEvaluation(null)
     setEvaluationStale(false)
     setMessage('Datos de demostración restaurados.')
@@ -187,7 +194,10 @@ export function ServiceReadiness() {
                   <span className="card-id">{request.id}</span>
                   <strong>{request.serviceType}</strong>
                   <span className="muted">{request.vehicle}</span>
-                  <span className="muted">{request.workshop}</span>
+                  <span className="muted">
+                    Tipo de taller: {workshopKindLabel(request.workshopKind)}
+                  </span>
+                  <span className="muted">Nombre: {request.workshop}</span>
                   <span className="chip-row">
                     <span className={`dot tone-${toneForCapacity(request.capacity)}`}>
                       Cupo
@@ -238,7 +248,15 @@ export function ServiceReadiness() {
                   <dd>{selected.serviceType}</dd>
                 </div>
                 <div>
-                  <dt>Taller</dt>
+                  <dt>Tipo de taller</dt>
+                  <dd>
+                    <span className="kind-tag">
+                      {workshopKindLabel(selected.workshopKind)}
+                    </span>
+                  </dd>
+                </div>
+                <div>
+                  <dt>Nombre del taller</dt>
                   <dd>{selected.workshop}</dd>
                 </div>
               </dl>
@@ -250,6 +268,34 @@ export function ServiceReadiness() {
                     className="conditions"
                     onSubmit={(event) => event.preventDefault()}
                   >
+                    <label className="field">
+                      Tipo de taller
+                      <select
+                        value={selected.workshopKind}
+                        disabled={Boolean(
+                          findOrderForRequest(orders, selected),
+                        )}
+                        onChange={(event) =>
+                          updateSelected(
+                            applyWorkshopSelection(
+                              selected,
+                              event.target.value as WorkshopKind,
+                            ),
+                          )
+                        }
+                      >
+                        <option value="propio">Propio</option>
+                        <option value="externo">Externo</option>
+                        <option value="no_seleccionado">No seleccionado</option>
+                      </select>
+                    </label>
+                    {findOrderForRequest(orders, selected) ? (
+                      <p className="hint">
+                        La orden vinculada conserva el taller registrado al
+                        confirmar.
+                      </p>
+                    ) : null}
+
                     <label className={`field tone-${toneForCapacity(selected.capacity)}`}>
                       Capacidad del taller
                       <select
@@ -257,6 +303,25 @@ export function ServiceReadiness() {
                         onChange={(event) =>
                           updateSelected({
                             capacity: event.target.value as CapacityStatus,
+                          })
+                        }
+                      >
+                        {CAPACITY_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className={`field tone-${toneForCapacity(selected.staffAvailability)}`}>
+                      Personal técnico disponible
+                      <select
+                        value={selected.staffAvailability}
+                        onChange={(event) =>
+                          updateSelected({
+                            staffAvailability: event.target
+                              .value as StaffAvailability,
                           })
                         }
                       >
