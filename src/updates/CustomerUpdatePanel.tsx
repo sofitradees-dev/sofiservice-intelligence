@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ContinuityOrder } from '../continuity/types'
 import { composeCustomerUpdate } from './composeCustomerUpdate'
+import { everydayUpdateType } from '../ui/labels'
 
 interface CustomerUpdatePanelProps {
   order: ContinuityOrder
@@ -28,7 +29,7 @@ export function CustomerUpdatePanel({ order }: CustomerUpdatePanelProps) {
 
   return (
     <article className="customer-update">
-      <h3>Actualización para el cliente</h3>
+      <h3>Informar al cliente</h3>
 
       <section className="customer-update-message">
         <h4>Mensaje para el cliente</h4>
@@ -50,24 +51,19 @@ export function CustomerUpdatePanel({ order }: CustomerUpdatePanelProps) {
           Copiar mensaje
         </button>
         {copied ? (
-          <p className="micro">Se copió solo el texto destinado al cliente.</p>
+          <p className="micro">Se copió el texto para el cliente.</p>
         ) : null}
       </section>
 
       <section className="customer-update-demo">
         <h4>Información de demostración</h4>
-        <dl className="facts">
-          <div>
-            <dt>Orden</dt>
-            <dd>
-              <code>{update.orderId}</code>
-            </dd>
-          </div>
-          <div>
-            <dt>Estado utilizado</dt>
-            <dd>{update.operationalState}</dd>
-          </div>
-        </dl>
+        <p className="micro">{everydayUpdateType(update.updateType)}</p>
+        <details className="tech-details">
+          <summary>Detalles técnicos</summary>
+          <p>
+            Referencia interna: <code>{update.orderId}</code>
+          </p>
+        </details>
         <p className="footnote">
           Vista previa · No enviado · Datos 100 % simulados
         </p>

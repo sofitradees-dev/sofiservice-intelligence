@@ -3,13 +3,7 @@
 Prototipo para Connect atVentures 2026 (reto BYD).  
 Equipo: SOFI TEAM
 
-Versión actual: **Customer Updates v0.5** (sobre Unified Service Flow v0.4)
-
-Versiones anteriores conservadas como módulos:
-
-- **Unified Service Flow v0.4**
-- **Service Readiness v0.2.1**
-- **Service Continuity v0.3**
+Versión actual: **interfaz unificada con lenguaje sencillo y ventanas de confirmación** (sobre Customer Updates v0.5, Unified Service Flow v0.4, Continuity v0.3 y Readiness v0.2.1).
 
 **DEMO — DATOS 100 % SIMULADOS**
 
@@ -21,64 +15,66 @@ La postventa automotriz combina mantenimientos preventivos, revisiones mecánica
 
 Este prototipo **no afirma** retrasos sistemáticos ni fallas confirmadas de coordinación. Muestra un recorrido continuo y verificable:
 
-1. **Readiness:** antes de ofrecer una atención, ¿las condiciones simuladas de taller, cupo, personal técnico, recambio e información operativa permiten confirmar la recepción?
+1. **Readiness:** antes de ofrecer una atención, ¿las condiciones simuladas de taller, cupo, personal técnico, recambio e información operativa permiten confirmar?
 2. **Continuity:** en la orden vinculada, ¿qué etapa o dependencia impide avanzar y qué acción explícita se requiere?
 3. **Customer Updates:** con los checkpoints ya registrados, ¿qué mensaje es seguro proponer al cliente?
 
 ## Propuesta
 
-**SOFI Service Intelligence** une esas verificaciones en un solo flujo de postventa simulada, con reglas deterministas, confirmación o avance **manual**, y una propuesta de mensaje al cliente basada solo en hechos registrados.
+**SOFI Service Intelligence** une esas verificaciones en **una sola pantalla operativa** (`Gestión de servicios`), con reglas deterministas, confirmación **manual** por ventanas y una propuesta de mensaje al cliente basada solo en hechos registrados.
 
-## Unified Service Flow v0.4
+El lenguaje de la interfaz es cotidiano. Los identificadores técnicos (solicitud, orden, VIN) quedan en detalles, no en el flujo principal.
 
-Recorrido principal:
+## Experiencia operativa
 
-**Solicitud → Evaluación → Confirmación → Orden vinculada → Checkpoints → Finalización.**
+Recorrido demostrable:
+
+**Solicitud → Verificar atención → Confirmar atención → Seguimiento del vehículo → Etapas del servicio → Informar al cliente.**
 
 Incluido y demostrable:
 
-- Cinco solicitudes ficticias, con tipo de taller (**PROPIO** / **EXTERNO**) y nombre asignado por separado.
-- Motor de Readiness ampliado: capacidad, personal técnico, recambio si aplica, información operativa y taller seleccionado.
-- Resultados: **CONFIRMABLE**, **NO_CONFIRMABLE**, **VERIFICACION_REQUERIDA**.
-- Confirmación manual solo con evaluación vigente y CONFIRMABLE. Crea **una** orden sintética vinculada; no reserva un cupo real.
-- Checkpoints secuenciales y explícitos. La disponibilidad inicial en inventario no equivale a recepción del recambio en el taller.
-- Si el servicio no requiere recambio, esa condición es **NO APLICA** y no bloquea.
-- Persistencia local unificada y **Restaurar escenario**.
+- Cinco solicitudes ficticias, con tipo de taller (propio / externo) y nombre asignado por separado.
+- Motor de Readiness: capacidad, personal técnico, recambio si aplica, información operativa y taller seleccionado.
+- Resultados visibles: **Se puede atender**, **No se puede confirmar**, **Falta verificar información**.
+- Confirmación manual de la atención solo con evaluación vigente y confirmable. Crea **una** orden sintética vinculada; no reserva un cupo real y **no** registra la llegada del vehículo.
+- Tras confirmar, un resumen compacto de la solicitud y foco en el seguimiento, con **una sola acción** operativa a la vez.
+- Cada acción de taller abre una **ventana de confirmación**. Cancelar o cerrar no registra eventos. Confirmar aplica únicamente el evento válido correspondiente.
+- Checkpoints secuenciales. La disponibilidad en inventario no equivale a recepción del repuesto en el taller.
+- Si el servicio no requiere repuesto, esa condición no aplica y no bloquea.
+- **Informar al cliente** se actualiza después de cada evento confirmado.
+- Persistencia local unificada y **Reiniciar demostración**.
 
-Los módulos Readiness y Continuity siguen disponibles para inspección, pero el pitch usa el recorrido unificado.
+Los motores Readiness, Continuity y Customer Updates no cambian sus reglas. Los módulos de inspección anteriores siguen en el repositorio.
 
 ## Escenario de pitch: REQ-DEMO-003
 
 Servicio: reparación por colisión (carrocería).  
-Taller: **EXTERNO** — Taller externo de colisión simulado.  
-Recambio: obligatorio. Capacidad y personal: disponibles. Información operativa: completa.
+Taller: **externo** — Taller externo de colisión simulado.  
+Repuesto: obligatorio. Cupo y personal: disponibles. Información: completa.
 
 Recorrido:
 
-1. Evaluación **CONFIRMABLE**.
-2. Confirmación manual del asesor.
-3. Creación de una sola orden `OS-LINK-REQ-DEMO-003` (el vehículo no figura recibido ni la reparación iniciada).
-4. Recepción explícita del vehículo.
-5. Asignación explícita al taller externo.
-6. Reparación bloqueada hasta registrar la recepción del recambio en el taller.
-7. Registro de recepción del recambio.
-8. Inicio manual de la reparación.
-9. Finalización manual.
-10. Estado **COMPLETADO**, con historial visible y sin acciones operativas activas.
+1. Verificar disponibilidad: se puede atender.
+2. Confirmar atención (el vehículo no figura llegado).
+3. Creación de una sola orden vinculada.
+4. Registrar llegada del vehículo (ventana de confirmación).
+5. Confirmar taller asignado.
+6. Reparación bloqueada hasta registrar la llegada del repuesto al taller.
+7. Confirmar llegada del repuesto.
+8. Iniciar reparación.
+9. Finalizar reparación.
+10. Mensaje al cliente según el último hecho registrado. Sin acciones operativas activas.
 
-**Restaurar escenario** deja de nuevo REQ-DEMO-003 pendiente para repetir la demostración.
+**Reiniciar demostración** deja de nuevo REQ-DEMO-003 pendiente para repetir el pitch.
 
 ## Customer Updates v0.5
 
 Motor puro `composeCustomerUpdate()`. Recibe el estado de una orden y propone un texto para el cliente **solo** a partir de checkpoints confirmados.
 
-Incluido y demostrable en **Service Continuity**:
-
-- Mensaje profesional por etapa: orden creada, vehículo recibido, espera de recambio, listo para iniciar, reparación iniciada y finalizada.
-- Si el servicio no requiere recambio, el texto no menciona una pieza pendiente.
-- El botón **Copiar mensaje** copia únicamente el texto destinado al cliente.
-- Leyendas de demostración (vista previa, no enviado, datos simulados) quedan en la interfaz, no en el mensaje copiable.
-- Estado inconsistente: no se genera mensaje para enviar.
+- Mensaje profesional por etapa: solicitud registrada, vehículo recibido, espera de repuesto, listo para iniciar, reparación iniciada y finalizada.
+- Si el servicio no requiere repuesto, el texto no menciona una pieza pendiente.
+- **Copiar mensaje** copia únicamente el texto destinado al cliente.
+- Leyendas de demostración quedan en la interfaz, no en el mensaje copiable.
 
 Esto **no** es un chatbot, un agente de IA ni un envío por WhatsApp, correo o CRM.
 
@@ -103,18 +99,18 @@ npm run dev
 
 La aplicación queda en [http://localhost:5173/](http://localhost:5173/).
 
-Navegación: **Recorrido**, **Service Readiness** y **Service Continuity**. En Continuity, el panel **Actualización para el cliente** se actualiza al registrar checkpoints.
+Pantalla única: **Gestión de servicios**. El asesor recorre solicitud, verificación, confirmación, etapas del taller e informar al cliente sin cambiar de módulo.
 
 ```bash
-npm test          # 70 pruebas (Readiness, Continuity, vinculación, taller y mensajes al cliente)
+npm test          # 78 pruebas (Readiness, Continuity, vinculación, taller, mensajes y ventanas de confirmación)
 npm run build     # TypeScript y empaquetado
 ```
 
-Stack: React, Vite, TypeScript y CSS. Sin dependencias de nube.
+Stack: React, Vite, TypeScript y CSS. Sin dependencias de nube ni librería pesada de componentes.
 
 ## Pruebas y datos simulados
 
-Vitest cubre Readiness (decisión, personal, taller, confirmación, persistencia), Continuity (dependencias, recambio, transiciones inválidas, estado final), el vínculo solicitud-orden (sin duplicados, orden inmutable tras confirmar, restauración) y Customer Updates (etapas permitidas, texto copiable sin advertencias internas, estados inconsistentes).
+Vitest cubre Readiness, Continuity, el vínculo solicitud-orden, Customer Updates y el flujo guiado de confirmación (cancelar no registra, confirmar aplica un evento, no hay doble ejecución, transiciones inválidas bloqueadas, cierre de ventana y siguiente paso).
 
 Vehículos, VIN, talleres e identificadores son **sintéticos** (`DEMO-`, `FICCIO`, `REQ-DEMO-`, `OS-LINK-`, `OS-DEMO-001`). No hay datos reales de clientes ni de operaciones BYD.
 

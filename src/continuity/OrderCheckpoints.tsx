@@ -1,46 +1,26 @@
+import { useRef, useState } from 'react'
 import {
-  applyContinuityEvent,
-  availableOperationalEvents,
   evaluateContinuity,
   isStageComplete,
   STAGE_SEQUENCE,
 } from './evaluateContinuity'
 import type { ContinuityEvent, ContinuityOrder } from './types'
+import { ConfirmActionModal } from '../ui/ConfirmActionModal'
+import {
+  CLOSED_DIALOG,
+  confirmActionDialog,
+  dismissActionDialog,
+  nextVisibleAction,
+  openActionDialog,
+  OPERATIONAL_ACTIONS,
+  type ActionDialogState,
+} from '../ui/confirmActionFlow'
+import { everydayStage, everydayVehicle } from '../ui/labels'
 
 interface OrderCheckpointsProps {
   order: ContinuityOrder
   message: string
   onOrderChange: (order: ContinuityOrder, message: string) => void
-}
-
-const ACTION_COPY: Partial<
-  Record<ContinuityEvent, { label: string; notice: string; className: string }>
-> = {
-  confirm_vehicle_reception: {
-    label: 'Registrar recepción del vehículo',
-    notice: 'Recepción del vehículo registrada de forma explícita.',
-    className: 'primary',
-  },
-  confirm_assignment: {
-    label: 'Registrar asignación al taller',
-    notice: 'Asignación al taller registrada de forma explícita.',
-    className: 'primary',
-  },
-  confirm_spare_receipt: {
-    label: 'Registrar recepción del recambio',
-    notice: 'Recepción ficticia del recambio registrada de forma explícita.',
-    className: 'primary',
-  },
-  start_repair: {
-    label: 'Iniciar reparación',
-    notice: 'Reparación simulada iniciada.',
-    className: 'confirm',
-  },
-  finish_repair: {
-    label: 'Registrar finalización',
-    notice: 'Reparación simulada marcada como finalizada.',
-    className: 'confirm',
-  },
 }
 
 export function OrderCheckpoints({
@@ -49,22 +29,73 @@ export function OrderCheckpoints({
   onOrderChange,
 }: OrderCheckpointsProps) {
   const evaluation = evaluateContinuity(order)
-  const nextEvent = availableOperationalEvents(order)[0]
-  const action = nextEvent ? ACTION_COPY[nextEvent] : undefined
+  const nextEvent = nextVisibleAction(order)
+  const action = nextEvent ? OPERATIONAL_ACTIONS[nextEvent] : undefined
+  const [dialog, setDialog] = useState<ActionDialogState>(CLOSED_DIALOG)
+  const dialogRef = useRef<ActionDialogState>(CLOSED_DIALOG)
 
-  function apply(event: ContinuityEvent, successMessage: string) {
-    const result = applyContinuityEvent(order, event)
-    if (!result.ok) {
-      onOrderChange(order, result.error ?? 'Transición no permitida.')
-      return
-    }
-    onOrderChange(result.order, successMessage)
+  function setDialogState(next: ActionDialogState) {
+    dialogRef.current = next
+    setDialog(next)
   }
 
+  function openConfirm(event: ContinuityEvent) {
+    setDialogState(openActionDialog(dialogRef.current, event))
+  }
+
+  function cancelConfirm() {
+    setDialogState(dismissActionDialog(dialogRef.current))
+  }
+
+  function submitConfirm() {
+    const current = dialogRef.current
+    if (!current.event || current.busy) return
+    const pending = current.event
+    const copy = OPERATIONAL_ACTIONS[pending]
+    dialogRef.current = { event: pending, busy: true }
+    setDialog(dialogRef.current)
+    const result = confirmActionDialog({ event: pending, busy: false }, order)
+    setDialogState(result.dialog)
+    if (result.applied && copy) {
+      onOrderChange(result.order, copy.notice)
+      return
+    }
+    if (result.error) {
+      onOrderChange(order, result.error)
+    }
+  }
+
+  const pendingCopy = dialog.event
+    ? OPERATIONAL_ACTIONS[dialog.event]
+    : undefined
+  const statusLabel = evaluation.allStagesComplete
+    ? 'Reparación registrada como finalizada'
+    : evaluation.status === 'BLOQUEADO'
+      ? 'Falta un paso para continuar'
+      : 'Listo para el siguiente paso'
+
   return (
-    <div className="workspace">
+    <div className="workspace guided-workspace">
       <div>
-        <ol className="timeline">
+        <h3>Etapas del servicio</h3>
+        {action && nextEvent ? (
+          <div className="actions checkpoint-action">
+            <button
+              type="button"
+              className={action.className}
+              onClick={() => openConfirm(nextEvent)}
+            >
+              {action.label}
+            </button>
+          </div>
+        ) : (
+          <p className="hint">
+            {evaluation.allStagesComplete
+              ? 'No hay más pasos de taller. Puede informar al cliente. No afirme que el vehículo ya se entregó.'
+              : 'Complete el paso actual antes de seguir.'}
+          </p>
+        )}
+        <ol className="timeline compact-timeline">
           {STAGE_SEQUENCE.map((stage) => {
             const complete = isStageComplete(order, stage.id)
             const current = evaluation.currentStage === stage.id
@@ -75,59 +106,20 @@ export function OrderCheckpoints({
                 key={stage.id}
                 className={`timeline-item ${complete ? 'done' : ''} ${current && !evaluation.allStagesComplete ? 'current' : ''} ${spareNa ? 'na' : ''}`}
               >
-                <strong>{stage.label}</strong>
+                <strong>{everydayStage(stage.id)}</strong>
                 <span>
                   {spareNa
                     ? 'No aplica'
                     : complete
-                      ? 'Completada'
+                      ? 'Hecho'
                       : current
-                        ? 'Etapa actual'
+                        ? 'Ahora'
                         : 'Pendiente'}
                 </span>
               </li>
             )
           })}
         </ol>
-
-        <h3>Verificadas</h3>
-        <ul className="dep-list">
-          {evaluation.verifiedDependencies.map((item) => (
-            <li key={item} className="dot tone-ok">
-              {item}
-            </li>
-          ))}
-        </ul>
-        <h3>Pendientes</h3>
-        {evaluation.pendingDependencies.length === 0 ? (
-          <p className="muted">Ninguna.</p>
-        ) : (
-          <ul className="dep-list">
-            {evaluation.pendingDependencies.map((item) => (
-              <li key={item} className="dot tone-pending">
-                {item}
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {action && nextEvent ? (
-          <div className="actions checkpoint-action">
-            <button
-              type="button"
-              className={action.className}
-              onClick={() => apply(nextEvent, action.notice)}
-            >
-              {action.label}
-            </button>
-          </div>
-        ) : (
-          <p className="hint">
-            {evaluation.allStagesComplete
-              ? 'Orden finalizada. El historial permanece visible. No hay acciones operativas activas.'
-              : 'La siguiente etapa permanece bloqueada hasta completar la dependencia previa.'}
-          </p>
-        )}
       </div>
 
       <aside>
@@ -135,31 +127,49 @@ export function OrderCheckpoints({
         <article
           className={`result ${evaluation.status === 'BLOQUEADO' ? 'result-no_confirmable' : 'result-confirmable'}`}
         >
-          <p className="result-kicker">Resultado del motor</p>
-          <h3>Estado</h3>
-          <p className="decision">
-            {evaluation.status === 'BLOQUEADO'
-              ? 'Bloqueado'
-              : evaluation.allStagesComplete
-                ? 'Completado'
-                : 'Listo para avanzar'}
-          </p>
-          <h4>Motivos</h4>
-          <ul>
-            {evaluation.reasons.map((reason) => (
-              <li key={reason}>{reason}</li>
-            ))}
-          </ul>
-          <div className="next-action">
-            <h4>Siguiente acción operativa</h4>
-            <p>{evaluation.recommendedAction}</p>
+          <p className="result-kicker">Estado del servicio</p>
+          <p className="decision">{statusLabel}</p>
+          <div className="guide-block">
+            <h4>Qué está pasando</h4>
+            <p>
+              {evaluation.allStagesComplete
+                ? 'Todos los pasos del taller ya están registrados.'
+                : evaluation.status === 'BLOQUEADO'
+                  ? 'Todavía falta un hecho registrado para poder avanzar.'
+                  : 'Ya se puede registrar el siguiente paso.'}
+            </p>
+            <h4>Por qué</h4>
+            <ul>
+              {evaluation.reasons.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+            <h4>Qué debo hacer ahora</h4>
+            <p>
+              {action
+                ? `Pulse «${action.label}» cuando ese hecho haya ocurrido.`
+                : evaluation.allStagesComplete
+                  ? 'Copie el mensaje para el cliente si lo necesita.'
+                  : 'Espere a completar el paso anterior.'}
+            </p>
           </div>
           <p className="footnote">
-            Orden ficticia. La disponibilidad inicial en inventario no equivale
-            a recepción en el taller. No hay correo ni sistemas reales.
+            Un repuesto disponible no es un repuesto recibido en el taller.
+            Una reparación finalizada no es un vehículo entregado.
           </p>
         </article>
       </aside>
+
+      <ConfirmActionModal
+        open={Boolean(dialog.event && pendingCopy)}
+        title={pendingCopy?.label ?? ''}
+        vehicle={everydayVehicle(order.vehicle)}
+        service={order.serviceType}
+        explanation={pendingCopy?.explanation ?? ''}
+        busy={dialog.busy}
+        onCancel={cancelConfirm}
+        onConfirm={submitConfirm}
+      />
     </div>
   )
 }
