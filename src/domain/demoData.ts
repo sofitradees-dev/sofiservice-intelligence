@@ -1,0 +1,73 @@
+import type { ServiceRequest } from './types'
+
+export const DEMO_REQUESTS: ServiceRequest[] = [
+  {
+    id: 'REQ-DEMO-001',
+    vehicle: 'Sedán eléctrico DEMO-A · VIN FICCIO001PA000001',
+    serviceType: 'Mantenimiento preventivo 10.000 km',
+    workshop: 'Taller de servicio autorizado simulado',
+    capacity: 'disponible',
+    requiresSpare: true,
+    spareAvailability: 'disponible',
+    operationalInfo: 'completa',
+    attentionStatus: 'pendiente',
+    serviceOrderLinkId: 'OS-LINK-REQ-DEMO-001',
+    revalidationNeeded: false,
+  },
+  {
+    id: 'REQ-DEMO-002',
+    vehicle: 'SUV compacto DEMO-B · VIN FICCIO002PA000002',
+    serviceType: 'Revisión mecánica de frenos y suspensión',
+    workshop: 'Taller de red de servicio simulado',
+    capacity: 'no_disponible',
+    requiresSpare: false,
+    spareAvailability: 'disponible',
+    operationalInfo: 'completa',
+    attentionStatus: 'pendiente',
+    serviceOrderLinkId: 'OS-LINK-REQ-DEMO-002',
+    revalidationNeeded: false,
+  },
+  {
+    id: 'REQ-DEMO-003',
+    vehicle: 'Hatchback DEMO-C · VIN FICCIO003PA000003',
+    serviceType: 'Reparación por colisión (carrocería)',
+    workshop: 'Taller externo de colisión simulado',
+    capacity: 'disponible',
+    requiresSpare: true,
+    spareAvailability: 'no_disponible',
+    operationalInfo: 'completa',
+    attentionStatus: 'pendiente',
+    serviceOrderLinkId: 'OS-LINK-REQ-DEMO-003',
+    revalidationNeeded: false,
+  },
+  {
+    id: 'REQ-DEMO-004',
+    vehicle: 'Sedán DEMO-D · VIN FICCIO004PA000004',
+    serviceType: 'Reparación de pintura por colisión',
+    workshop: 'Taller externo de pintura simulado',
+    capacity: 'desconocida',
+    requiresSpare: false,
+    spareAvailability: 'desconocida',
+    operationalInfo: 'completa',
+    attentionStatus: 'pendiente',
+    serviceOrderLinkId: 'OS-LINK-REQ-DEMO-004',
+    revalidationNeeded: false,
+  },
+  {
+    id: 'REQ-DEMO-005',
+    vehicle: 'SUV DEMO-E · VIN FICCIO005PA000005',
+    serviceType: 'Mantenimiento preventivo 30.000 km',
+    workshop: 'Taller de servicio autorizado simulado',
+    capacity: 'disponible',
+    requiresSpare: true,
+    spareAvailability: 'disponible',
+    operationalInfo: 'incompleta',
+    attentionStatus: 'pendiente',
+    serviceOrderLinkId: 'OS-LINK-REQ-DEMO-005',
+    revalidationNeeded: false,
+  },
+]
+
+export function cloneDemoRequests(): ServiceRequest[] {
+  return DEMO_REQUESTS.map((request) => ({ ...request }))
+}
